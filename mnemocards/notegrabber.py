@@ -5,10 +5,10 @@ from itertools import islice
 from ast import literal_eval
 from subprocess import Popen
 
-# from googleapiclient.discovery import build
-# from google_auth_oauthlib.flow import InstalledAppFlow
-# from google.auth.transport.requests import Request
-# from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.http import MediaIoBaseDownload
 
 
 class GoogleDriveNoteDownloader:
@@ -195,19 +195,20 @@ def notegrabber():
         print(f"finished scraping {file_name}")
 
     if words_list:
+        with open("current_words.txt", "w+") as current_word_file:
+            for word in words_list:
+                current_word_file.write(word + "\n")
+            current_word_file.seek(0)
+
+            print(
+                "Please check all the words, script will continue after you close the file"
+            )
+            Popen(["gedit", "-w", current_word_file.name]).wait()
+
         with open("result.txt", "a+") as word_library:
-            with open("current_words", "w+") as current_word_file:
-                for word in words_list:
-                    current_word_file.write(word + "\n")
+            with open("current_words.txt", "r") as current_word_file_edited:
+                words_edited = [word.strip()
+                                for word in current_word_file_edited.readlines()]
+                for word in words_edited:
                     word_library.write(word + "\n")
-                current_word_file.seek(0)
-
-                print(
-                    "Please check all the words, script will continue after you close the file"
-                )
-                Popen(["gedit", "-w", current_word_file]).wait()
                 print('finished')
-
-
-if __name__ == "__main__":
-    notegrabber()
