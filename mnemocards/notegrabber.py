@@ -5,10 +5,10 @@ from itertools import islice
 from ast import literal_eval
 from subprocess import Popen
 
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from googleapiclient.http import MediaIoBaseDownload
+# from googleapiclient.discovery import build
+# from google_auth_oauthlib.flow import InstalledAppFlow
+# from google.auth.transport.requests import Request
+# from googleapiclient.http import MediaIoBaseDownload
 
 
 class GoogleDriveNoteDownloader:
@@ -207,3 +207,7 @@ def notegrabber():
                 )
                 Popen(["gedit", "-w", current_word_file]).wait()
                 print('finished')
+
+
+if __name__ == "__main__":
+    notegrabber()
