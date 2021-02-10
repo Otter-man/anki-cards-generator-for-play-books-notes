@@ -258,6 +258,10 @@ it to config.json or cards.tsv
 
 IDGEN_PARSER = SUBPARSERS.add_parser("id", help=help_txt)
 
+# Playbook command.
+help_txt = """Downaloads your notes made in Play Book and scrapes them in a 
+list."""
+PLAYBOOK_PARSER = = SUBPARSERS.add_parser("playbook", help=help_txt)
 
 # Hi command. Easter egg :)
 EGG_PARSER = SUBPARSERS.add_parser("hi", add_help=False)

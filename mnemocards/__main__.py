@@ -7,6 +7,7 @@ from mnemocards.push import push
 from mnemocards.clean import clean
 from mnemocards.import_command import import_command
 from mnemocards.maketsv import make_tsv
+from mnemocards.notegrabber import notegrabber
 from mnemocards.utils import generate_card_uuid
 
 
@@ -33,6 +34,8 @@ def main():
         make_tsv(args)
     elif args.command == "id":
         generate_card_uuid()
+    elif args.command == "playbooks":
+        notegrabber()
 
 
 if __name__ == "__main__":
