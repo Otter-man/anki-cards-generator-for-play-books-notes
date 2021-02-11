@@ -5,11 +5,11 @@
             "decks": [
                 {
                     "id": "ec50001c-f6ef-4871-8fd3-ed2c3c5ab68a",
-                    "name": "New english words",
+                    "name": "All_cards::New english words",
                     "src": [
                         {
                             "type": "autogenerate",
-                            "file": "result.txt",
+                            "file": "en_ru.tsv",
                             "pronunciation_in_reverse": true,
                             "card_color": "#f5f5f5",
                             "lang": {

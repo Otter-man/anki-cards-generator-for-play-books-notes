@@ -195,7 +195,7 @@ def notegrabber():
         print(f"finished scraping {file_name}")
 
     if words_list:
-        with open("current_words.txt", "w+") as current_word_file:
+        with open("words.txt", "w+") as current_word_file:
             for word in words_list:
                 current_word_file.write(word + "\n")
             current_word_file.seek(0)
@@ -206,7 +206,7 @@ def notegrabber():
             Popen(["gedit", "-w", current_word_file.name]).wait()
 
         with open("result.txt", "a+") as word_library:
-            with open("current_words.txt", "r") as current_word_file_edited:
+            with open("words.txt", "r") as current_word_file_edited:
                 words_edited = [word.strip()
                                 for word in current_word_file_edited.readlines()]
                 for word in words_edited:
