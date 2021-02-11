@@ -118,10 +118,10 @@ class NoteScrapper:
         #     .export_media(fileId=file_id, mimeType="text/html")
         #     .execute()
         # )
-        # # with open(
-        # #     f'{" ".join(file_info["name"].split())}.html', "w"
-        # # ) as file_html:
-        # #     file_html.write(note_file_html.decode("utf-8"))
+
+        # file_name_html = file_info["name"].replace("\"", "\'") + ".html"
+        # with open(file_name_html, "w") as file_html:
+        #     file_html.write(note_file_html.decode("utf-8"))
 
         note_file = note_file.decode("utf-8").split("\n")
 
