@@ -4,6 +4,7 @@ import os
 from itertools import islice
 from ast import literal_eval
 from subprocess import Popen
+from bs4 import BeautifulSoup as bs
 
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -100,115 +101,160 @@ class GoogleDriveNoteDownloader:
         return notes_files
 
 
-class NoteScrapper:
-    def download_note_file(self, gdriver, file_info):
+class NoteParser:
 
-        file_id = file_info["id"]
-        file_name = file_info["name"] + ".txt"
+    def __init__(self, html_string):
+        self.html_src = html_string
 
-        note_file = (
-            gdriver.files()
-            .export_media(fileId=file_id, mimeType="text/plain")
-            .execute()
-        )
+    def grab_all_notes(self):
 
-        # To download file as HTML for easier parsing.
-        # note_file_html = (
-        #     gdriver.files()
-        #     .export_media(fileId=file_id, mimeType="text/html")
-        #     .execute()
-        # )
+        soup = bs(self.html_src, 'html.parser')
+        all_notes = soup.select('td[style*="width:358"]')
+        return all_notes
 
-        # file_name_html = file_info["name"].replace("\"", "\'") + ".html"
-        # with open(file_name_html, "w") as file_html:
-        #     file_html.write(note_file_html.decode("utf-8"))
+    def parse_note_into_types(self, colors):
+        vocab, notes, highlights = [], [], []
 
-        note_file = note_file.decode("utf-8").split("\n")
+        soup = bs(self.html_src, 'html.parser')
 
-        return file_name, note_file
+        noted = soup.select_one('p:nth-of-type(3):nth-last-of-type(3) span')
+        highlighted = soup.select_one('p:first-of-type span')
 
-    def grab_notes(self, book, words_list):
+        if soup.select_one(f'p:first-of-type [style*="{colors["vocab"]}"]'):
+            if noted:
+                vocab.append(noted.text)
+            elif highlighted:
+                vocab.append(highlighted.text)
 
-        exceptions = [
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-            "Introduction",
-            "Notes",
-            "they",
-        ]
+        elif soup.select_one(f'p:first-of-type [style*="{colors["note"]}"]'):
+            if noted and highlighted:
+                notes.append([highlighted.text, noted.text])
+            elif highlighted and not noted:
+                highlights.append(highlighted.text)
 
-        with open("result.txt", "r") as old_words:
-            old_words = [word.strip() for word in old_words.readlines()]
+        else:
+            highlights.append(highlighted.text)
 
-            for line in islice(book, 15, None):
-                line = str(line)
-                if (line[0] != "\t") and (line[0] != "w"):
-                    continue
+        return [vocab, notes, highlights]
 
-                line = line.strip()
-                line = line.split()
 
-                if not line:
-                    continue
+def download_note_file(gdriver, file_info):
 
-                try:
-                    line[0] = int(line[0])
-                    continue
-                except (ValueError, IndexError):
+    file_id = file_info["id"]
+    file_name = file_info["name"]
+    note_file = (
+        gdriver.files()
+        .export_media(fileId=file_id, mimeType="text/html")
+        .execute()
+    )
 
-                    if line[0] == "w":
-                        line.pop(0)
+    # file_name_html = file_info["name"].replace("\"", "\'") + ".html"
+    # with open(file_name_html, "w") as file_html:
+    #     file_html.write(note_file_html.decode("utf-8"))
 
-                    word_in_card = " ".join(line)
-                    if (word_in_card in old_words) or (
-                        word_in_card.lower() in old_words
-                    ):
-                        continue
-                    elif (len(line) == 1) and (len(line[0]) <= 2):
-                        continue
-                    elif line[0] not in exceptions and 0 < len(line) <= 4:
-                        words_list.append(" ".join(line))
+    note_file_html = note_file.decode("utf-8")
+
+    return file_name, note_file_html
+
+    # def grab_notes(self, book, words_list):
+
+    #     exceptions = [
+    #         "January",
+    #         "February",
+    #         "March",
+    #         "April",
+    #         "May",
+    #         "June",
+    #         "July",
+    #         "August",
+    #         "September",
+    #         "October",
+    #         "November",
+    #         "December",
+    #         "Introduction",
+    #         "Notes",
+    #         "they",
+    #     ]
+
+    #     with open("result.txt", "r") as old_words:
+    #         old_words = [word.strip() for word in old_words.readlines()]
+
+    #         for line in islice(book, 15, None):
+    #             line = str(line)
+    #             if (line[0] != "\t") and (line[0] != "w"):
+    #                 continue
+
+    #             line = line.strip()
+    #             line = line.split()
+
+    #             if not line:
+    #                 continue
+
+    #             try:
+    #                 line[0] = int(line[0])
+    #                 continue
+    #             except (ValueError, IndexError):
+
+    #                 if line[0] == "w":
+    #                     line.pop(0)
+
+    #                 word_in_card = " ".join(line)
+    #                 if (word_in_card in old_words) or (
+    #                     word_in_card.lower() in old_words
+    #                 ):
+    #                     continue
+    #                 elif (len(line) == 1) and (len(line[0]) <= 2):
+    #                     continue
+    #                 elif line[0] not in exceptions and 0 < len(line) <= 4:
+    #                     words_list.append(" ".join(line))
+
+
+colors = {"vocab": "#c5e1a5",
+          #   "highlight": "#ffb8a1",
+          "note": "#93e3ed",
+          #   "golden_glow_yellow": "#fde096"}
+          }
 
 
 def notegrabber():
 
     downloader = GoogleDriveNoteDownloader()
-    scrapper = NoteScrapper()
     gdriver = downloader.create_gdriver()
     all_notes = downloader.get_notes_info(gdriver)
 
     # We download note files for all books and scrape words marked in them.
-    words_list = []
+    vocab, notes, highlights = [], [], []
+
     for book in all_notes:
-        file_name, note_file = scrapper.download_note_file(gdriver, book)
-        scrapper.grab_notes(note_file, words_list)
+        file_name, note_file = download_note_file(gdriver, book)
+        note_file = NoteParser(note_file)
+        all_notes_from_file = note_file.grab_all_notes()
+        for note in all_notes_from_file:
+            note = NoteParser(str(note))
+            vocab.extend(note.parse_note_into_types(colors)[0])
+
         print(f"finished scraping {file_name}")
 
-    if words_list:
-        with open("words.txt", "w+") as current_word_file:
-            for word in words_list:
-                current_word_file.write(word + "\n")
-            current_word_file.seek(0)
+    if vocab:
+        with open("result.txt", "r+") as all_words:
+            old_words = [word.strip() for word in all_words.readlines()]
 
-            print(
-                "Please check all the words, script will continue after you close the file"
-            )
-            Popen(["gedit", "-w", current_word_file.name]).wait()
+            with open("words.txt", "w+") as current_word_file:
+                for word in vocab:
+                    if word.lower() not in old_words:
+                        current_word_file.write(word + "\n")
+                current_word_file.seek(0)
 
-        with open("result.txt", "a+") as word_library:
+                print(
+                    "Please check all the words, script will continue after you close the file"
+                )
+                Popen(["gedit", "-w", current_word_file.name]).wait()
+
             with open("words.txt", "r") as current_word_file_edited:
                 words_edited = [word.strip()
                                 for word in current_word_file_edited.readlines()]
                 for word in words_edited:
-                    word_library.write(word + "\n")
+                    all_words.write(word + "\n")
                 print('finished')
+    else:
+        print("No new words in your notes.")
