@@ -1,6 +1,7 @@
 import pickle
 import json
 import os
+import zipfile
 from itertools import islice
 from ast import literal_eval
 from subprocess import Popen
@@ -101,18 +102,18 @@ class GoogleDriveNoteDownloader:
         return notes_files
 
 
-class NoteParser:
+class NoteParserHTML:
 
     def __init__(self, html_string):
         self.html_src = html_string
 
-    def grab_all_notes(self):
+    def grab_all_html_notes(self):
 
         soup = bs(self.html_src, 'html.parser')
         all_notes = soup.select('td[style*="width:358"]')
         return all_notes
 
-    def parse_note_into_types(self, colors):
+    def parse_html_note_into_types(self, colors):
         vocab, notes, highlights = [], [], []
 
         soup = bs(self.html_src, 'html.parser')
@@ -130,12 +131,57 @@ class NoteParser:
             if noted and highlighted:
                 notes.append([highlighted.text, noted.text])
             elif highlighted and not noted:
-                highlights.append(highlighted.text)
+                notes.append([highlighted.text])
 
         else:
             highlights.append(highlighted.text)
 
         return [vocab, notes, highlights]
+
+
+class NoteParserXML:
+
+    def __init__(self, docx_path):
+        self.docx_src = zipfile.ZipFile(docx_path)
+        self.xml_content = self.docx_src.read('word/document.xml')
+        self.docx_src.close()
+        self.xml_soup = bs(self.xml_content, 'html.parser')
+
+    def grab_all_xml_notes(self, colors):
+        vocab, notes, highlights = [], [], []
+
+        all_notes = self.xml_soup.find_all('w:tbl')
+
+        for note in all_notes:
+            visible = note.find_all('w:tblind')
+            if not visible:
+                continue
+
+            all_text = note.find_all('w:t')
+
+            highlighted = all_text[0].text
+            noted = all_text[1].text
+
+            if len(all_text) == 3:
+                noted = None
+
+            if str(note).find(colors["vocab"][1:]) != -1:
+                if highlighted and noted:
+                    vocab.append(noted)
+                else:
+                    vocab.append(highlighted)
+
+            elif str(note).find(colors["note"][1:]) != -1:
+                if noted and highlighted:
+                    notes.append([highlighted, noted])
+                else:
+                    notes.append([highlighted])
+
+            else:
+                highlights.append(highlighted)
+
+        # two first items in highlights are always Bookname and warning.
+        return vocab, notes, highlights[2:]
 
 
 def download_note_file(gdriver, file_info):
@@ -156,83 +202,30 @@ def download_note_file(gdriver, file_info):
 
     return file_name, note_file_html
 
-    # def grab_notes(self, book, words_list):
-
-    #     exceptions = [
-    #         "January",
-    #         "February",
-    #         "March",
-    #         "April",
-    #         "May",
-    #         "June",
-    #         "July",
-    #         "August",
-    #         "September",
-    #         "October",
-    #         "November",
-    #         "December",
-    #         "Introduction",
-    #         "Notes",
-    #         "they",
-    #     ]
-
-    #     with open("result.txt", "r") as old_words:
-    #         old_words = [word.strip() for word in old_words.readlines()]
-
-    #         for line in islice(book, 15, None):
-    #             line = str(line)
-    #             if (line[0] != "\t") and (line[0] != "w"):
-    #                 continue
-
-    #             line = line.strip()
-    #             line = line.split()
-
-    #             if not line:
-    #                 continue
-
-    #             try:
-    #                 line[0] = int(line[0])
-    #                 continue
-    #             except (ValueError, IndexError):
-
-    #                 if line[0] == "w":
-    #                     line.pop(0)
-
-    #                 word_in_card = " ".join(line)
-    #                 if (word_in_card in old_words) or (
-    #                     word_in_card.lower() in old_words
-    #                 ):
-    #                     continue
-    #                 elif (len(line) == 1) and (len(line[0]) <= 2):
-    #                     continue
-    #                 elif line[0] not in exceptions and 0 < len(line) <= 4:
-    #                     words_list.append(" ".join(line))
-
 
 colors = {"vocab": "#c5e1a5",
-          #   "highlight": "#ffb8a1",
+          "highlight": "#ffb8a1",
           "note": "#93e3ed",
-          #   "golden_glow_yellow": "#fde096"}
-          }
+          "golden_glow_yellow": "#fde096"}
 
 
 def notegrabber():
 
     downloader = GoogleDriveNoteDownloader()
     gdriver = downloader.create_gdriver()
-    all_notes = downloader.get_notes_info(gdriver)
+    all_note_files = downloader.get_notes_info(gdriver)
 
     # We download note files for all books and scrape words marked in them.
     vocab, notes, highlights = [], [], []
 
-    for book in all_notes:
+    for book in all_note_files:
         file_name, note_file = download_note_file(gdriver, book)
-        note_file = NoteParser(note_file)
-        all_notes_from_file = note_file.grab_all_notes()
+        all_notes_from_file = NoteParserHTML(note_file).grab_all_html_notes()
         for note in all_notes_from_file:
-            note = NoteParser(str(note))
-            vocab.extend(note.parse_note_into_types(colors)[0])
-
+            note = NoteParserHTML(str(note)).parse_html_note_into_types(colors)
+            vocab.extend(note[0])
+            notes.extend(note[1])
+            highlights.extend(note[2])
         print(f"finished scraping {file_name}")
 
     if vocab:
